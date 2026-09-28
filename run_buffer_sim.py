@@ -24,42 +24,26 @@ class QueueEmptyError(Exception):
 
 class OrderQueue:
     """
-    BUGGY ON PURPOSE. This class has two problems to fix, per Part B:
-
-    1. No lock: `enqueue`/`dequeue` are not synchronized at all.
-    2. `dequeue` uses a check-then-act pattern (check emptiness, THEN
-       pop) with a deliberate `time.sleep(0)` between the two steps.
-       That sleep(0) is not a bug you need to remove -- it's there to
-       force a thread-scheduling opportunity, because CPython's GIL
-       makes a single list.append()/list.pop() call atomic on its own,
-       so a naive unsynchronized version usually won't visibly race in
-       a quick test. The sleep(0) widens the window so the real bug
-       (two threads both passing the emptiness check, then both
-       popping) shows up reliably instead of only rarely.
-
-    Fix: add a threading.Lock in __init__, and acquire it (via
-    `with self._lock:`) around the ENTIRE body of both enqueue and
-    dequeue -- the check and the act must happen as one atomic unit.
+    Thread-safe order queue.
     """
 
     def __init__(self) -> None:
         self._items = []
-        # TODO: self._lock = threading.Lock()
+        self._lock = threading.Lock()
 
     def enqueue(self, item) -> None:
-        # TODO: wrap this in `with self._lock:`
-        self._items.append(item)
+        with self._lock:
+            self._items.append(item)
 
     def dequeue(self):
-        # TODO: wrap this whole method body in `with self._lock:`
-        if len(self._items) == 0:
-            raise QueueEmptyError("queue is empty")
-        time.sleep(0)  # deliberate -- see class docstring. Do not remove.
-        return self._items.pop(0)
+        with self._lock:
+            if len(self._items) == 0:
+                raise QueueEmptyError("queue is empty")
+            time.sleep(0)  # deliberate -- see class docstring. Do not remove.
+            return self._items.pop(0)
 
     def __len__(self) -> int:
         return len(self._items)
-
 
 # ============================== SIMULATOR + VERIFICATION SUITE ==============================
 # Do not edit below this line.
